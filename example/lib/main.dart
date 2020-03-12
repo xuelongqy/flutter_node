@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:ffi';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
@@ -25,15 +27,42 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     initPlatformState();
     Pointer<Pointer<Utf8>> argv = allocate<Pointer<Utf8>>(count: 3);
-    argv[0] = Utf8.toUtf8('node');
-    argv[1] = Utf8.toUtf8('-e');
-    argv[2] = Utf8.toUtf8('''
-    var http = require('http');
-    var versions_server = http.createServer( (request, response) => { 
-      response.end('Versions: ' + JSON.stringify(process.versions)); 
-    }); 
-    versions_server.listen(3000);
-    ''');
+    List<String> arguments = [
+      'node',
+      '-e',
+      '''
+var http = require('http');
+var versions_server = http.createServer( (request, response) => { 
+  response.end('Versions: ' + JSON.stringify(process.versions)); 
+}); 
+versions_server.listen(3000);
+      ''',
+    ];
+    Map<String, int> argumentsMap = {};
+    int argumentsSize = 0;
+    for (var arg in arguments) {
+      int size = utf8.encode(arg).length + 1;
+      argumentsMap[arg] = utf8.encode(arg).length + 1;
+      argumentsSize += size;
+    }
+    Pointer<Utf8> argumentsPointer;
+    final Pointer<Uint8> result = allocate<Uint8>(count: argumentsSize);
+    final Uint8List nativeString = result.asTypedList(argumentsSize);
+    int argumentsPos = 0;
+    for (var arg in arguments) {
+      var units = utf8.encode(arg);
+      nativeString.setAll(argumentsPos, units);
+      nativeString[units.length] = 0;
+      int size = units.length + 1;
+      argumentsSize += size;
+    }
+    int pointPos = 0;
+    argumentsPointer = result.cast();
+    for (int i = 0; i < arguments.length; i++) {
+      var arg = arguments[i];
+      argv[0] = Pointer.fromAddress(pointPos + argumentsPointer.address);
+      pointPos += (utf8.encode(arg).length + 1);
+    }
     nodeStart(3, argv);
   }
 
