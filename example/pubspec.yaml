@@ -9,6 +9,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  ffi: ^0.1.3
+
   flutter_node:
     path: ../
 

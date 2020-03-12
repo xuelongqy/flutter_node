@@ -1,8 +1,12 @@
+import 'dart:ffi';
+
+import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_node/flutter_node.dart';
+import 'package:flutter_node/node_bindings.dart';
 
 void main() {
   runApp(MyApp());
@@ -20,6 +24,17 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     initPlatformState();
+    Pointer<Pointer<Utf8>> argv = allocate<Pointer<Utf8>>(count: 3);
+    argv[0] = Utf8.toUtf8('node');
+    argv[1] = Utf8.toUtf8('-e');
+    argv[2] = Utf8.toUtf8('''
+    var http = require('http');
+    var versions_server = http.createServer( (request, response) => { 
+      response.end('Versions: ' + JSON.stringify(process.versions)); 
+    }); 
+    versions_server.listen(3000);
+    ''');
+    nodeStart(3, argv);
   }
 
   // Platform messages are asynchronous, so we initialize in an async method.
