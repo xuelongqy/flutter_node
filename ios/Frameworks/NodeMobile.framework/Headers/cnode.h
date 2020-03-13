@@ -5,7 +5,7 @@
 
 extern "C" {
 
-int nodeStart(int argc, char *argv[]);
+void nodeStart(int argc, char *argv[]);
 
 };
 

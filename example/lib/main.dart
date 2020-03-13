@@ -37,7 +37,7 @@ var versions_server = http.createServer( (request, response) => {
 versions_server.listen(3000);''');
   }
 
-  Future<int> _runNodeJs(String script) async {
+  void _runNodeJs(String script) {
     List<String> arguments = [
       'node',
       '-e',
@@ -62,33 +62,34 @@ versions_server.listen(3000);''');
       argv[i] = Pointer.fromAddress(argumentsPos + argumentsPointer.address);
       argumentsPos += units.length + 1;
     }
-    final receivePort = ReceivePort();
-    Isolate.spawn<SendPort>(_nodeIsolate, receivePort.sendPort);
-    final sendPort = await receivePort.first as SendPort;
-    final answer = ReceivePort();
-    sendPort.send([
-      {
-        'argc': 3,
-        'argv': argv.address,
-      },
-      answer.sendPort
-    ]);
-    return await answer.first;
+    nodeStart(3, argv);
+//    final receivePort = ReceivePort();
+//    Isolate.spawn<SendPort>(_nodeIsolate, receivePort.sendPort);
+//    final sendPort = await receivePort.first as SendPort;
+//    final answer = ReceivePort();
+//    sendPort.send([
+//      {
+//        'argc': 3,
+//        'argv': argv.address,
+//      },
+//      answer.sendPort
+//    ]);
+//    return await answer.first;
   }
 
-  static void _nodeIsolate(SendPort sendPort) {
-    final receivePort = ReceivePort();
-    //绑定
-    sendPort.send(receivePort.sendPort);
-    //监听
-    receivePort.listen((message) {
-      //获取数据并解析
-      final data = message[0] as Map;
-      final send = message[1] as SendPort;
-      //返回结果
-      send.send(nodeStart(data['argc'], Pointer.fromAddress(data['argv'])));
-    });
-  }
+//  static void _nodeIsolate(SendPort sendPort) {
+//    final receivePort = ReceivePort();
+//    //绑定
+//    sendPort.send(receivePort.sendPort);
+//    //监听
+//    receivePort.listen((message) {
+//      //获取数据并解析
+//      final data = message[0] as Map;
+//      final send = message[1] as SendPort;
+//      //返回结果
+//      send.send(nodeStart(data['argc'], Pointer.fromAddress(data['argv'])));
+//    });
+//  }
 
   void _requestUrl() {
     HttpClient().getUrl(Uri.parse(_urlInputController.text)).then((request) {
