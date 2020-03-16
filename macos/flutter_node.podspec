@@ -17,7 +17,7 @@ Node.js for Flutter.
   s.dependency 'FlutterMacOS'
 
   # Node
-  s.vendored_frameworks = 'Frameworks/node.framework'
+  s.vendored_libraries = 'Frameworks/libnode.79.dylib'
 
   s.platform = :osx, '10.11'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
