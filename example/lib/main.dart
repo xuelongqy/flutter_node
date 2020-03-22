@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
-import 'dart:async';
 import 'package:flutter_node/node_bindings.dart';
 
 void main() {
@@ -17,17 +17,47 @@ class MyApp extends StatefulWidget {
   _MyAppState createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
+  // Node环境
+  static Pointer _env = nullptr;
+
+  // Node程序启动前(通常做初始化)
+  static InitNodeDart _initNodeFunc;
+  static void _initNode(Pointer env) {
+    _env = env;
+    if (_initNodeFunc != null) {
+      _initNodeFunc(env);
+    }
+  }
+
   // 输入控制器
   TextEditingController _scriptInputController;
   TextEditingController _urlInputController;
 
+  // 按钮动画控制器
+  AnimationController _iconController;
+  // 按钮动画控制器
+  bool _isRunning = false;
+  set _running(bool value) {
+    _isRunning = value;
+    if (_isRunning) {
+      _iconController.reverse();
+    } else {
+      _iconController.forward();
+    }
+  }
+  
   // 返回结果
   String _result;
 
   @override
   void initState() {
     super.initState();
+    _iconController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    )..drive(Tween(begin: 0.0, end: 1.0));
+    _iconController.animateTo(1.0);
     _urlInputController = TextEditingController(text: 'http://127.0.0.1:3000');
     _scriptInputController =
         TextEditingController(text: '''var http = require('http');
@@ -35,9 +65,23 @@ var versions_server = http.createServer( (request, response) => {
   response.end('Versions: ' + JSON.stringify(process.versions)); 
 }); 
 versions_server.listen(3000);''');
+    _initNodeFunc = _initNodeInner;
+  }
+  
+  @override
+  void dispose() {
+    super.dispose();
+    _iconController.dispose();
   }
 
-  void _runNodeJs(String script) {
+  void _initNodeInner(Pointer env) {
+    setState(() {
+      _running = true;
+    });
+  }
+
+  void _startNode(String script) async {
+    if (_env != nullptr) return;
     List<String> arguments = [
       'node',
       '-e',
@@ -62,7 +106,9 @@ versions_server.listen(3000);''');
       argv[i] = Pointer.fromAddress(argumentsPos + argumentsPointer.address);
       argumentsPos += units.length + 1;
     }
-    nodeStart(3, argv);
+    // 启动Node程序
+    //nodeStart(3, argv, Pointer.fromFunction(_initNode));
+    nodeStartThread(3, argv, nullptr);
 //    final receivePort = ReceivePort();
 //    Isolate.spawn<SendPort>(_nodeIsolate, receivePort.sendPort);
 //    final sendPort = await receivePort.first as SendPort;
@@ -77,6 +123,14 @@ versions_server.listen(3000);''');
 //    return await answer.first;
   }
 
+  void _stopNode() {
+    _running = false;
+    if (_env != nullptr) {
+      _env = nullptr;
+      print(nodeStop(_env));
+    }
+  }
+
 //  static void _nodeIsolate(SendPort sendPort) {
 //    final receivePort = ReceivePort();
 //    //绑定
@@ -87,7 +141,7 @@ versions_server.listen(3000);''');
 //      final data = message[0] as Map;
 //      final send = message[1] as SendPort;
 //      //返回结果
-//      send.send(nodeStart(data['argc'], Pointer.fromAddress(data['argv'])));
+//      send.send(nodeStart(data['argc'], Pointer.fromAddress(data['argv']), Pointer.fromFunction(_initNode)));
 //    });
 //  }
 
@@ -166,12 +220,17 @@ versions_server.listen(3000);''');
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            setState(() {
-              _runNodeJs(_scriptInputController.text);
-            });
+          onPressed: _isRunning ? () {
+            _stopNode();
+          } : () {
+            _startNode(_scriptInputController.text);
           },
-          child: Icon(Icons.play_arrow),
+          child: AnimatedIcon(
+            icon: AnimatedIcons.pause_play,
+            progress: _iconController,
+            color: Colors.white,
+            size: 30.0,
+          ),
         ),
       ),
     );
